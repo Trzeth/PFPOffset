@@ -5,7 +5,7 @@
 #ifndef THICKEN2_DP_H
 #define THICKEN2_DP_H
 #include <random>
-double avg_edge_limit = 1e-10;
+double avg_edge_limit = 1e-9;
 vector<int> get_sub_state(int state,int face_list_size){
     vector<int> ret;
     function<void(int,int,int)> dfs = [&](int state,int pos,int change){
@@ -28,11 +28,17 @@ vector<int> get_sub_state(int state,int face_list_size){
     dfs(state,face_list_size,0);
     return ret;
 }
+
+
 vector<MeshKernel::iGameVertex> run(MeshKernel::iGameVertexHandle vh,vector<MeshKernel::iGameFaceHandle> neighbor_face_list){
 //    if(neighbor_face_list.size()>=21) {
 //        cout << "neighbor_face_list.size()=" <<neighbor_face_list.size() <<">21 : this mesh please do remeshing before" << endl;
 //        exit(0);
 //    }
+//    if(neighbor_face_list.size() ==0)
+//        return {};
+    //cout <<"v " <<mesh->fast_iGameVertex[vh].x() <<" "<<  mesh->fast_iGameVertex[vh].y() <<" "<<  mesh->fast_iGameVertex[vh].z() << endl;
+
     vector<double>dp;
     vector<int>dp_source;
     vector<MeshKernel::iGameVertex>dp_osqp_answer;
@@ -42,7 +48,8 @@ vector<MeshKernel::iGameVertex> run(MeshKernel::iGameVertexHandle vh,vector<Mesh
     fill(dp.begin(),dp.end(),-1);
     fill(dp_source.begin(),dp_source.end(),-1);
     function<double(int)> dfs = [&](int state){
-        if(dp[state] != -1) return dp[state];
+        //cout <<vh<< "dfs_state:" << state <<" "<<dp[state]<< endl;
+        if(dp[state] >0 ) return dp[state];
         vector<MeshKernel::iGameFaceHandle> local_neighbor_face_list;
         for(int i=0;i<neighbor_face_list.size();i++){
             if(state & (1<<i))
@@ -51,21 +58,27 @@ vector<MeshKernel::iGameVertex> run(MeshKernel::iGameVertexHandle vh,vector<Mesh
         bool succ = false;
         double exceed_dist = 0;
         double self_value = 1e100;
-        for(int times=0;times<4;times++) { //避免osqp求解器的不稳定性,多尝试几次
+        for(int times=0;times<1;times++) { //避免osqp求解器的不稳定性,多尝试几次
             MeshKernel::iGameVertex v_new = do_quadratic_error_metric_check(vh, local_neighbor_face_list, succ,
                                                                             exceed_dist);
             if (succ) {
                 if((v_new - mesh->fast_iGameVertex[vh]).norm() < self_value){
-                    self_value = (v_new - mesh->fast_iGameVertex[vh]).norm();
+                    dp[state] = (v_new - mesh->fast_iGameVertex[vh]).norm();
+                    dp_osqp_answer[state] = v_new;
+                    dp_source[state] = 0;
+                    self_value = dp[state];
                 }
-                dp[state] = (v_new - mesh->fast_iGameVertex[vh]).norm();
-                dp_osqp_answer[state] = v_new;
-                dp_source[state] = 0;
-                self_value = dp[state];
+                //break;
             }
         }
         double minx = 1e100;
-        if(neighbor_face_list.size() >=3) {
+        int min_from = -1;
+//        if(local_neighbor_face_list.size() <= 1 && self_value <0){
+//            cout <<"error in dfs dp" << endl;
+//            exit(0);
+//        }
+
+        if(bitset<22>(state).count() >=1) {
             vector<int> sub_state = std::move(get_sub_state(state, neighbor_face_list.size()));
             int from = -1;
             for (auto next: sub_state) {
@@ -73,25 +86,45 @@ vector<MeshKernel::iGameVertex> run(MeshKernel::iGameVertexHandle vh,vector<Mesh
                 if (next > state - next)continue;
                 double sub_ans = dfs(next) + dfs(state - next);
                 if (sub_ans < minx) {
-                    from = next;
+                    min_from = next;
                     minx = sub_ans;
                 }
             }
-            if(self_value > minx) {
-                dp[state] = minx;
-                dp_source[state] = from;
-                return minx;
-            }
         }
-        return min(minx,self_value);
+        if(self_value > minx) {
+            dp[state] = minx;
+            dp_source[state] = min_from;
+            return minx;
+        }
+        double ret_value = min(minx,self_value);
+//        if(ret_value <= 0){
+//            cout <<"ret value error"<< endl;
+//            exit(0);
+//        }
+//        else{
+//            cout <<"ret value not error"<<" "<<(ret_value <= 0.0)<<" "<<ret_value<< endl;
+//        }
+//
+//        if(dp[state] <= 0){
+//            cout << minx <<" "<< self_value << " "<<ret_value<<" "<<dp[state]<< endl;
+//            cout <<"dp value error"<< endl;
+//            exit(0);
+//        }
+        return ret_value;
     };
+    // cout <<"stdfs"<< endl;
     dfs((1<<neighbor_face_list.size())-1);
     queue<int>q;
     vector<MeshKernel::iGameVertex>ret;
 
     q.push((1<<neighbor_face_list.size())-1);
+    //cout<<"dp="<< dp[(1<<neighbor_face_list.size())-1] << endl;
+    // cout <<"**"<< endl;
     while(!q.empty()){
         int now = q.front();
+        //cout << now <<" : "<< dp_source[now] << endl;
+        //cout << now <<" "<<dp_source[now] << endl;
+
         q.pop();
         if(dp_source[now] == 0){
             //ret.push_back(now);
@@ -112,19 +145,29 @@ vector<MeshKernel::iGameVertex> solve_by_dp(MeshKernel::iGameVertexHandle vh,vec
     vector<MeshKernel::iGameFaceHandle> neighbor_face_list_tmp = neighbor_face_list;
     //cout <<"determins " <<neighbor_face_list.size() <<":"<<avg_edge_limit / 1000<< endl;
     neighbor_face_list.clear();
+
     for(int i=0;i<neighbor_face_list_tmp.size();i++){
         //cout <<"************************************" << endl;
         MeshKernel::iGameFaceHandle f = neighbor_face_list[i];
-        bool flag = true;
-        vector<double>len_list;
-        for(int j=0;j<3;j++) {
-            len_list.push_back((mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(j)]
-                                - mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh((j+1)%3)]).norm());
-        }
-        sort(len_list.begin(),len_list.end());
-        if(len_list[0] + len_list[1]> len_list[2] + avg_edge_limit/100){
+        K2::Triangle_3 this_facet(K2::Point_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(0)])),
+                                  K2::Point_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(1)])),
+                                  K2::Point_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(2)]))
+        );
+        if(!this_facet.is_degenerate()){
             neighbor_face_list.push_back(f);
         }
+
+//        bool flag = true;
+//        vector<double>len_list;
+//        for(int j=0;j<3;j++) {
+//            len_list.push_back((mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(j)]
+//                                - mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh((j+1)%3)]).norm());
+//        }
+//        sort(len_list.begin(),len_list.end());
+//        if(len_list[0] + len_list[1]> len_list[2] + avg_edge_limit/100){
+//            neighbor_face_list.push_back(f);
+//        }
+
 //
 //
 //        if(flag) {
@@ -160,23 +203,65 @@ vector<MeshKernel::iGameVertex> solve_by_dp(MeshKernel::iGameVertexHandle vh,vec
     }
     //exit(0);
     //cout <<"determine "<< neighbor_face_list.size() << endl;
+    if(neighbor_face_list.empty()){
+        return {};
+    }
+    DSU dsu;
+    vector<K2::Vector_3> face_normal;
+    for(int i=0;i<neighbor_face_list.size();i++) {
+        MeshKernel::iGameFaceHandle f = neighbor_face_list[i];
+        K2::Vector_3 normal_k2 = K2::Triangle_3 (K2::Point_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(0)])),
+                                                 K2::Point_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(1)])),
+                                                 K2::Point_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[f].vh(2)]))
+        ).supporting_plane().orthogonal_vector();
+
+        normal_k2 /= CGAL::approximate_sqrt(normal_k2.squared_length());
+        face_normal.push_back(normal_k2);
+    }
+    if(face_normal.size() > 15) {
+        int cnt = face_normal.size();
+        priority_queue<pair<double,pair<int,int> > > q;
+        for(int i=0;i<face_normal.size();i++){
+            for(int j=i+1;j<face_normal.size();j++){
+                q.push({CGAL::to_double(face_normal[i]*face_normal[j]),{i,j}});
+            }
+        }
+        while(cnt > 15 && !q.empty()){
+            pair<int,int> now = q.top().second;
+            q.pop();
+            if(dsu.find_root(now.first) != dsu.find_root(now.second)){
+                dsu.join(now.first,now.second);
+                cnt--;
+            }
+        }
+        cnt = 0;
+        for(int i = 0;i<neighbor_face_list.size();i++){
+            if(dsu.find_root(i) == i){
+                neighbor_face_list[++cnt] = neighbor_face_list[i];
+            }
+        }
+        neighbor_face_list.resize(cnt);
+    }
+
 
 
     //cout << vh << endl;
-    if(neighbor_face_list.size()<=16) {
+    if(neighbor_face_list.size()<=15) {
         //cout <<"?? now : " << neighbor_face_list.size() << endl;
         return run(vh,neighbor_face_list);
     }
     else{
+        cout <<"bigggg"<< endl;
+        exit(0);
         //cout<<"1-ring size: "<< neighbor_face_list.size() <<" meeting limit 16 do random subdivide"<< endl;
-
-        int cnt = ((int)neighbor_face_list.size() - 1)/16 + 1;
+        int s = (int)neighbor_face_list.size();
+        int cnt = ((int)neighbor_face_list.size() - 1)/8 + 1;
         int each = neighbor_face_list.size() / cnt + 1;
         //if(each > 16)exit(0);
         //cout <<"each "<< each<< endl;
         double ans = 1e100;
         vector<MeshKernel::iGameVertex> ret;
-        for(int times=0;times<10;times++){
+        for(int times=0;times<1;times++){
             vector<MeshKernel::iGameVertex> now;
             std::shuffle(neighbor_face_list.begin(), neighbor_face_list.end(), mt);
             vector<MeshKernel::iGameFaceHandle> que;

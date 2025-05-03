@@ -5,6 +5,7 @@
 #ifndef THICKEN2_OBJ_INPUT_H
 #define THICKEN2_OBJ_INPUT_H
 double default_move = -1;
+double min_near_limit = 1e-5;
 int thread_num = 12;
 double max_distance_limit = 1.30;
 double min_distance_limit = 1.0;
@@ -47,8 +48,10 @@ MeshKernel::SurfaceMesh ReadObjFile(const std::string &_InputFile) {
                     std::cerr << vh << " " << vertices.size() << std::endl;
                 }
             }
-            if (vex.size() >= 4)
+            if (vex.size() >= 4) {
+                exit(0);
                 move_dist.push_back(std::stod(vex[3]));
+            }
             else
                 move_dist.push_back(default_move);
             faces.push_back(face);
@@ -68,4 +71,40 @@ MeshKernel::SurfaceMesh ReadObjFile(const std::string &_InputFile) {
     return mesh;
 }
 shared_ptr <MeshKernel::SurfaceMesh> mesh;
+string input_filename;
+
+double start_x;
+double start_y;
+double start_z;
+void set_start(){
+    mesh->initBBox();
+    start_x = mesh->BBoxMin.x() + (mesh->BBoxMax.x() - mesh->BBoxMin.x()) / 2;
+    start_y = mesh->BBoxMin.y() + (mesh->BBoxMax.y() - mesh->BBoxMin.y()) / 2;
+    start_z = mesh->BBoxMin.z() + (mesh->BBoxMax.z() - mesh->BBoxMin.z()) / 2;
+    for(int i=0;i<mesh->VertexSize();i++){
+        mesh->fast_iGameVertex[i].x() -= start_x;
+        mesh->fast_iGameVertex[i].y() -= start_y;
+        mesh->fast_iGameVertex[i].z() -= start_z;
+    }
+}
+
+void update_model(){
+    FILE *file_update = fopen( (input_filename + "_update.obj").c_str(), "w");
+    set_start();
+    for(int i=0;i<mesh->VertexSize();i++){
+        fprintf(file_update,"v %lf %lf %lf\n",
+                mesh->fast_iGameVertex[i].x() - start_x,
+                mesh->fast_iGameVertex[i].y() - start_y,
+                mesh->fast_iGameVertex[i].z() - start_z);
+    }
+    for(int i=0;i<mesh->FaceSize();i++){
+        fprintf(file_update,"f %d %d %d\n",
+                mesh->fast_iGameFace[i].vh(0)+1,
+                mesh->fast_iGameFace[i].vh(1)+1,
+                mesh->fast_iGameFace[i].vh(2)+1);
+    }
+    fclose(file_update);
+
+    exit(0);
+}
 #endif //THICKEN2_OBJ_INPUT_H

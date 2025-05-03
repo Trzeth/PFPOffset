@@ -4,37 +4,46 @@
 
 #ifndef THICKEN2_COVERAGEFIELD_H
 #define THICKEN2_COVERAGEFIELD_H
+#include <random>
 struct CoverageField {
     vector<K2::Point_3 > bound_face_vertex_exact;
-    vector<K::Point_3 > bound_face_vertex_inexact;
+    vector<K2::Point_3 > bound_face_vertex_exact_debug;
+    vector<K2::Point_3 > bound_face_vertex_exact_record;
     vector<vector<int> > bound_face_id;
+    vector<vector<K2::Point_3> > bound_face_sampling_point;
+    vector<vector<int> > bound_face_sampling_point_state;
     vector<vector<grid> >  bound_face_cross_field_list;
     vector<vector<K2::Segment_3> > bound_face_cutting_segment;
     vector<vector<K2::Point_3> > bound_face_cutting_point;
-    vector<bool> bound_face_useful;
+    vector<int> bound_face_useful;// 0  表示确定无用 1表示确定有用 2表示大概率无用 -99 表示原来的表面
 
     K2::Point_3 center;
     std::vector<std::vector<K2::Point_3> > cdt_result;
     vector<int>cdt_result_cross_field_list_id;
-    vector<bool>cdt_result_cross_field_list_useful;
+    vector<int>cdt_result_useful;
 
     vector<K2::Point_3 > renumber_bound_face_vertex;
     vector<vector<int> > renumber_bound_face_id;
     vector<vector<grid> > renumber_bound_face_cross_field_list;
+    bool useful;
+    bool self_face_delete_flag;
     int field_id;
+
+
     void do_cdt(){
         //            vector<K2::Point_3> sorted_bound_vertex;
 //            vector<K2::Segment_3> cs;
 //            set<pair<int,int> >cs_set;
-        for(int i=0;i<bound_face_id.size();i++){
+        for(int i=0;i<bound_face_id.size();i++) {
             vector<K2::Point_3> sorted_bound_vertex{bound_face_vertex_exact[bound_face_id[i][0]],
                                                     bound_face_vertex_exact[bound_face_id[i][1]],
                                                     bound_face_vertex_exact[bound_face_id[i][2]]
             };
-            if(!bound_face_useful[i]) {
+            //cout << "bound_face_useful[i]"<<bound_face_useful[i]<<endl;
+            if(bound_face_useful[i] != 1) {
                 cdt_result.push_back(sorted_bound_vertex);
                 cdt_result_cross_field_list_id.push_back(i);
-                cdt_result_cross_field_list_useful.push_back(false);
+                cdt_result_useful.push_back(bound_face_useful[i]);
                 continue;
             }
 
@@ -47,7 +56,7 @@ struct CoverageField {
                 cnt += (j.vertex(1) == bound_face_vertex_exact[bound_face_id[i][0]] );
                 cnt += (j.vertex(1) == bound_face_vertex_exact[bound_face_id[i][1]] );
                 cnt += (j.vertex(1) == bound_face_vertex_exact[bound_face_id[i][2]] );
-                if(cnt <2 ){
+                if(cnt <2 ) {
                     cs.push_back(j);
                 }
             }
@@ -94,24 +103,126 @@ struct CoverageField {
                 return a.z() < b.z();
             });
             sorted_bound_vertex.resize(std::unique(sorted_bound_vertex.begin(),sorted_bound_vertex.end())-sorted_bound_vertex.begin());
-
-            vector<vector<K2::Point_3> > res = CGAL_CDT_NEW(sorted_bound_vertex,cs,tri);
-
+            //cout << field_id <<" "<<i<<" "<<cs.size() << endl;
+            vector<vector<K2::Point_3> > res = CGAL_CDT_NEW2(sorted_bound_vertex,cs,tri);
             for(int j=0;j<res.size();j++){
                 cdt_result.push_back(res[j]);
                 cdt_result_cross_field_list_id.push_back(i);
-                cdt_result_cross_field_list_useful.push_back(true);
+                cdt_result_useful.push_back(bound_face_useful[i]);
             }
+//            for(auto j : bound_face_cutting_segment[i]){
+//                if(CGAL::squared_distance(j.vertex(0),tri)!=CGAL::Epeck::FT(0)){
+//                    cout <<"tri dist bug v0"<< endl;
+//                }
+//                if(CGAL::squared_distance(j.vertex(1),tri)!=CGAL::Epeck::FT(0)){
+//                    cout <<"tri dist bug v1"<< endl;
+//                }
+//            }
+
+//            if(i==0 || i==6){
+//                for(int j=0;j<res.size();j++){
+//                    if(CGAL::squared_distance(res[j][0],tri)!=CGAL::Epeck::FT(0)){
+//                        cout <<i<<" "<< j<<" "<< 0 <<"errortouying "<< CGAL::squared_distance(res[j][0],tri)<< endl;
+//                        cout <<i<<" "<< j<<" "<< 0 <<"errortouyingmian "<< CGAL::squared_distance(res[j][0],tri.supporting_plane())<< endl;
+//                    }
+//                    if(CGAL::squared_distance(res[j][1],tri)!=CGAL::Epeck::FT(0)){
+//                        cout <<i<<" "<< j<<" "<< 1 <<"errortouying "<< CGAL::squared_distance(res[j][1],tri)<<endl;
+//                        cout <<i<<" "<< j<<" "<< 1 <<"errortouyingmian "<< CGAL::squared_distance(res[j][1],tri.supporting_plane())<<endl;
+//                    }
+//                    if(CGAL::squared_distance(res[j][2],tri)!=CGAL::Epeck::FT(0)){
+//                        cout <<i<<" "<< j<<" "<< 2 <<"errortouying "<< CGAL::squared_distance(res[j][2],tri)<<endl;
+//                        cout <<i<<" "<< j<<" "<< 1 <<"errortouyingmian "<< CGAL::squared_distance(res[j][1],tri.supporting_plane())<<endl;
+//                    }
+//                }
+//            }
 
         }
+//        ofstream fsall("../occ2/out_debugall.obj");
+//        int ccc = 1;
+//        for(int i=0;i<bound_face_id.size();i++){
+//            fsall << "v "<<bound_face_vertex_exact[bound_face_id[i][0]]<<endl;
+//            fsall << "v "<<bound_face_vertex_exact[bound_face_id[i][1]]<<endl;
+//            fsall << "v "<<bound_face_vertex_exact[bound_face_id[i][2]]<<endl;
+//            fsall <<"f "<<ccc <<" "<< ccc+1 <<" "<< ccc+2 << endl;
+//            ccc+=3;
+//        }
+//        fsall.close();
+//
+//        ofstream fsip("../occ2/out_debug0.obj");
+//        ofstream fsop("../occ2/out_debug6.obj");
+//
+//        fsip << "v "<<bound_face_vertex_exact[bound_face_id[0][0]]<<endl;
+//        fsip << "v "<<bound_face_vertex_exact[bound_face_id[0][1]]<<endl;
+//        fsip << "v "<<bound_face_vertex_exact[bound_face_id[0][2]]<<endl;
+//        fsip <<"f 1 2 3"<<endl;
+//        fsop << "v "<<bound_face_vertex_exact[bound_face_id[6][0]]<<endl;
+//        fsop << "v "<<bound_face_vertex_exact[bound_face_id[6][1]]<<endl;
+//        fsop << "v "<<bound_face_vertex_exact[bound_face_id[6][2]]<<endl;
+//        fsop << "f 1 2 3"<<endl;
+//        K2::Triangle_3 tri0(bound_face_vertex_exact[bound_face_id[0][0]],
+//                            bound_face_vertex_exact[bound_face_id[0][1]],
+//                            bound_face_vertex_exact[bound_face_id[0][2]]
+//                            );
+//        K2::Triangle_3 tri6(bound_face_vertex_exact[bound_face_id[6][0]],
+//                            bound_face_vertex_exact[bound_face_id[6][1]],
+//                            bound_face_vertex_exact[bound_face_id[6][2]]
+//                            );
+//        CGAL::cpp11::result_of<K2::Intersect_3(K2::Triangle_3, K2::Triangle_3)>::type
+//                res_06 = intersection(tri0, tri6);
+//        if (res_06) {
+//            if (const K2::Segment_3 *s = boost::get<K2::Segment_3>(&*res_06)) {
+//                if (!segment_coincide_triangle(*s, tri0) || !segment_coincide_triangle(*s, tri6)) {
+//                    cout <<"06occur cdt but cutting segment"<<endl;
+//
+//                    //一会把0、6，2、6，4、7都输出来看一下，把里面的线段都输出来看一下到底是什么原因造成cdt的结果出现相交
+//
+//                  //  cout << "diff srouce id:"<<cdt_result_cross_field_list_id[i]<<" "<< cdt_result_cross_field_list_id[j]<<endl;
+//                }
+//                else{
+//                    cout <<"06occur segment_coincide_triangle"<<endl;
+//                }
+//            }
+//        }
+//
+//        for(int i=0;i<cdt_result.size();i++){
+//            if(!cdt_result_useful[i])continue;
+//            for(int j=i+1;j<cdt_result.size();j++){
+//                if(!cdt_result_useful[j])continue;
+//                K2::Triangle_3 tri_i(cdt_result[i][0],
+//                                     cdt_result[i][1],
+//                                     cdt_result[i][2]
+//                                     );
+//                K2::Triangle_3 tri_j(cdt_result[j][0],
+//                                     cdt_result[j][1],
+//                                     cdt_result[j][2]
+//                );
+//                CGAL::cpp11::result_of<K2::Intersect_3(K2::Triangle_3, K2::Triangle_3)>::type
+//                        res_tt = intersection(tri_i, tri_j);
+//                if (res_tt) {
+//                    if (const K2::Segment_3 *s = boost::get<K2::Segment_3>(&*res_tt)) {
+//                        if (!segment_coincide_triangle(*s, tri_i) || !segment_coincide_triangle(*s, tri_j)) {
+//                            cout <<"occur cdt but cutting segment"<<endl;
+//                            //一会把0、6，2、6，4、7都输出来看一下，把里面的线段都输出来看一下到底是什么原因造成cdt的结果出现相交
+//
+//                            cout << "diff srouce id:"<<cdt_result_cross_field_list_id[i]<<" "<< cdt_result_cross_field_list_id[j]<<endl;
+//                        }
+//
+//                    }
+//                }
+//            }
+//        }
+//
+//
+//        cout <<field_id<<"end cdt:::end cccccdt"<< endl;
 
     }
 
 
     vector<int>renumber_bound_face_vertex_global_id;
     vector<int>renumber_bound_face_global_id;
-    vector<bool>renumber_bound_face_useful;
+    vector<int>renumber_bound_face_useful;
     std::unordered_map<unsigned long long,int> encode_map;
+    vector<vector<int> > bound_face_id_not_sub;
 
     void renumber(){
         std::vector<K::Point_3> kd_tree_points;
@@ -140,7 +251,7 @@ struct CoverageField {
             if(set<int>{id0,id1,id2}.size() != 3)continue;
             renumber_bound_face_id.push_back({id0,id1,id2});
             renumber_bound_face_cross_field_list.push_back(bound_face_cross_field_list[cdt_result_cross_field_list_id[i]]);
-            renumber_bound_face_useful.push_back(cdt_result_cross_field_list_useful[i]);
+            renumber_bound_face_useful.push_back(cdt_result_useful[i]);
 
         }
         std::list<K2::Triangle_3>tri_list;
@@ -149,9 +260,10 @@ struct CoverageField {
                                   renumber_bound_face_vertex[renumber_bound_face_id[i][1]],
                                   renumber_bound_face_vertex[renumber_bound_face_id[i][2]]);
         }
+       // cout <<"tri_list"<<tri_list.size() <<":"<<renumber_bound_face_vertex.size()<<endl;
         Tree aabb_tree(tri_list.begin(),tri_list.end());
         auto iter = tri_list.begin();
-        for(int i=0;i<renumber_bound_face_id.size();i++,iter++){
+        for(int i=0;i<renumber_bound_face_id.size();i++,iter++){ //这里似乎可以加速
             K2::Point_3 tri_center = CGAL::centroid(*iter);
             K2::Ray_3 ray(tri_center,iter->supporting_plane().orthogonal_vector());
             std::list< Tree::Intersection_and_primitive_id<K2::Ray_3>::Type> intersections;
@@ -181,38 +293,198 @@ struct CoverageField {
         renumber_bound_face_global_id.resize(renumber_bound_face_id.size());
     }
 
+    double x_min;
+    double y_min;
+    double z_min;
+
+    double x_max;
+    double y_max;
+    double z_max;
+    K2::Iso_cuboid_3 iso_cuboid_3;
+
+//    CoverageField(MeshKernel::iGameFaceHandle fh) {
+//
+//        x_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].x());
+//        y_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].y());
+//        z_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].z());
+//
+//        x_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].x());
+//        y_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].y());
+//        z_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].z());
+//
+//        bound_face_vertex_exact.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)]);
+//
+//        bound_face_vertex_exact.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(1)]);
+//
+//        bound_face_vertex_exact.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(2)]);
+//        K2::Triangle_3 origin_tri(
+//                bound_face_vertex_exact[0],
+//                bound_face_vertex_exact[1],
+//                bound_face_vertex_exact[2]
+//        );
+//
+//        for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(0)])
+//            bound_face_vertex_exact.push_back(v);
+//        for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(1)])
+//            bound_face_vertex_exact.push_back(v);
+//        for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(2)])
+//            bound_face_vertex_exact.push_back(v);
+//
+//        map<K2::Point_3 ,int> mp;
+//        for(int i=0;i<bound_face_vertex_exact.size();i++) {
+//            x_min = min(CGAL::to_double(bound_face_vertex_exact[i].x()),x_min);
+//            y_min = min(CGAL::to_double(bound_face_vertex_exact[i].y()),y_min);
+//            z_min = min(CGAL::to_double(bound_face_vertex_exact[i].z()),z_min);
+//            x_max = max(CGAL::to_double(bound_face_vertex_exact[i].x()),x_max);
+//            y_max = max(CGAL::to_double(bound_face_vertex_exact[i].y()),y_max);
+//            z_max = max(CGAL::to_double(bound_face_vertex_exact[i].z()),z_max);
+//            mp[bound_face_vertex_exact[i]] = i;
+//        }
+//
+//        double x_delta = ((x_max - x_min)/50);
+//        double y_delta = ((y_max - y_min)/50);
+//        double z_delta = ((z_max - z_min)/50);
+//        x_min-=x_delta;
+//        y_min-=y_delta;
+//        z_min-=z_delta;
+//        x_max+=x_delta;
+//        y_max+=y_delta;
+//        z_max+=z_delta;
+//        iso_cuboid_3 = K2::Iso_cuboid_3(x_min,y_min,z_min,x_max,y_max,z_max);
+//
+//        if(field_move_vertices[mesh->fast_iGameFace[fh].vh(0)].size()==0||
+//           field_move_vertices[mesh->fast_iGameFace[fh].vh(1)].size()==0||
+//           field_move_vertices[mesh->fast_iGameFace[fh].vh(2)].size()==0 ||
+//           origin_tri.is_degenerate()
+//                ){
+//            center = centroid(K2::Triangle_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)]),
+//                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)]),
+//                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)])
+//            ));
+//            useful  = false;
+//            return;
+//        }
+//        useful = true;
+//
+//        Delaunay3DK2 dt;
+//        dt.insert(bound_face_vertex_exact.begin(), bound_face_vertex_exact.end());
+//        std::vector<K2::Triangle_3> surface_triangles;
+//        for (auto fit = dt.finite_cells_begin(); fit != dt.finite_cells_end(); ++fit) {
+//            for (int i = 0; i < 4; ++i) {
+//                if (dt.is_infinite(fit->neighbor(i))) {
+//                    surface_triangles.push_back(dt.triangle(fit, i));
+//                }
+//            }
+//        }
+//        if(surface_triangles.size()<4){
+//            center = centroid(K2::Triangle_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)]),
+//                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)]),
+//                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)])
+//            ));
+//            useful  = false;
+//            return;
+//        }
+//
+//        K2::Vector_3 center_vec = {0,0,0};
+//        for (const auto& triangle : surface_triangles) {
+//            int v0_id = mp[(triangle.vertex(0))];
+//            int v1_id = mp[(triangle.vertex(1))];
+//            int v2_id = mp[(triangle.vertex(2))];
+//            bound_face_id.push_back({v0_id, v1_id, v2_id});
+//            bound_face_sampling_point.push_back(get_sampling_point(triangle));
+//            bound_face_sampling_point_state.emplace_back(bound_face_sampling_point.rbegin()->size(),0);
+//            center_vec += (centroid(K2::Triangle_3(bound_face_vertex_exact[v0_id],
+//                                                   bound_face_vertex_exact[v1_id],
+//                                                   bound_face_vertex_exact[v2_id])) - K2::Point_3(0,0,0)) ;
+//        }
+//        center =  K2::Point_3(0,0,0) + (center_vec / surface_triangles.size());
+//
+//        std::vector<std::vector<std::size_t> > faces_list;
+//
+//        for (auto i: bound_face_id) {
+//            faces_list.push_back({std::size_t(i[0]), std::size_t(i[1]), std::size_t(i[2])});
+//            bound_face_useful.push_back(1);
+//        }
+//        bound_face_cross_field_list.resize(bound_face_id.size());
+//        bound_face_cutting_segment.resize(bound_face_id.size());
+//        bound_face_cutting_point.resize(bound_face_id.size());
+//        poly = new CGAL::Polyhedron_3<K2>();
+//
+//        PMP::polygon_soup_to_polygon_mesh(bound_face_vertex_exact, faces_list, *poly, CGAL::parameters::all_default());
+//        inside_ptr = new CGAL::Side_of_triangle_mesh<CGAL::Polyhedron_3<K2>, K2>(*poly);
+//
+//    }
+
+
     CoverageField(MeshKernel::iGameFaceHandle fh) {
-        bound_face_vertex_inexact.emplace_back(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)].x(),
-                                               mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)].y(),
-                                               mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)].z()
+
+        x_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].x());
+        y_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].y());
+        z_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].z());
+
+        x_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].x());
+        y_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].y());
+        z_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].z());
+
+        bound_face_vertex_exact_record.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)]);
+
+        bound_face_vertex_exact_record.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(1)]);
+
+        bound_face_vertex_exact_record.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(2)]);
+        K2::Triangle_3 origin_tri(
+                bound_face_vertex_exact_record[0],
+                bound_face_vertex_exact_record[1],
+                bound_face_vertex_exact_record[2]
         );
-        bound_face_vertex_inexact.emplace_back(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)].x(),
-                                               mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)].y(),
-                                               mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)].z()
-        );
-        bound_face_vertex_inexact.emplace_back(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)].x(),
-                                               mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)].y(),
-                                               mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)].z()
-        );
+
         for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(0)])
-            bound_face_vertex_inexact.emplace_back(v.x(),v.y(),v.z());
+            bound_face_vertex_exact_record.push_back(v);
         for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(1)])
-            bound_face_vertex_inexact.emplace_back(v.x(),v.y(),v.z());
+            bound_face_vertex_exact_record.push_back(v);
         for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(2)])
-            bound_face_vertex_inexact.emplace_back(v.x(),v.y(),v.z());
+            bound_face_vertex_exact_record.push_back(v);
 
 
-        map<size_t,int> mp;
-        for(int i=0;i<bound_face_vertex_inexact.size();i++){
 
-            mp[unique_hash_value(bound_face_vertex_inexact[i])] = i;
-            bound_face_vertex_exact.emplace_back(bound_face_vertex_inexact[i].x(),
-                                                 bound_face_vertex_inexact[i].y(),
-                                                 bound_face_vertex_inexact[i].z());
+        map<K2::Point_3 ,int> mp;
+        for(int i=0;i<bound_face_vertex_exact_record.size();i++) {
+            x_min = min(CGAL::to_double(bound_face_vertex_exact_record[i].x()),x_min);
+            y_min = min(CGAL::to_double(bound_face_vertex_exact_record[i].y()),y_min);
+            z_min = min(CGAL::to_double(bound_face_vertex_exact_record[i].z()),z_min);
+            x_max = max(CGAL::to_double(bound_face_vertex_exact_record[i].x()),x_max);
+            y_max = max(CGAL::to_double(bound_face_vertex_exact_record[i].y()),y_max);
+            z_max = max(CGAL::to_double(bound_face_vertex_exact_record[i].z()),z_max);
+            mp[bound_face_vertex_exact_record[i]] = i;
         }
-        Delaunay3D dt;
-        dt.insert(bound_face_vertex_inexact.begin(), bound_face_vertex_inexact.end());
-        std::vector<K::Triangle_3> surface_triangles;
+
+        double x_delta = ((x_max - x_min)/50);
+        double y_delta = ((y_max - y_min)/50);
+        double z_delta = ((z_max - z_min)/50);
+        x_min-=x_delta;
+        y_min-=y_delta;
+        z_min-=z_delta;
+        x_max+=x_delta;
+        y_max+=y_delta;
+        z_max+=z_delta;
+        iso_cuboid_3 = K2::Iso_cuboid_3(x_min,y_min,z_min,x_max,y_max,z_max);
+
+        if(field_move_vertices[mesh->fast_iGameFace[fh].vh(0)].size()==0||
+           field_move_vertices[mesh->fast_iGameFace[fh].vh(1)].size()==0||
+           field_move_vertices[mesh->fast_iGameFace[fh].vh(2)].size()==0 ||
+           origin_tri.is_degenerate()
+                ){
+            center = centroid(K2::Triangle_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)])
+            ));
+            useful  = false;
+            return;
+        }
+        useful = true;
+
+        Delaunay3DK2 dt;
+        dt.insert(bound_face_vertex_exact_record.begin(), bound_face_vertex_exact_record.end());
+        std::vector<K2::Triangle_3> surface_triangles;
         for (auto fit = dt.finite_cells_begin(); fit != dt.finite_cells_end(); ++fit) {
             for (int i = 0; i < 4; ++i) {
                 if (dt.is_infinite(fit->neighbor(i))) {
@@ -220,26 +492,43 @@ struct CoverageField {
                 }
             }
         }
-
+        if(surface_triangles.size()<4){
+            center = centroid(K2::Triangle_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)])
+            ));
+            useful  = false;
+            return;
+        }
 
         K2::Vector_3 center_vec = {0,0,0};
-        for (const auto& triangle : surface_triangles) {
-            int v0_id = mp[unique_hash_value(triangle.vertex(0))];
-            int v1_id = mp[unique_hash_value(triangle.vertex(1))];
-            int v2_id = mp[unique_hash_value(triangle.vertex(2))];
 
+        mp.clear();
+        for(int i=0;i<bound_face_vertex_exact_record.size();i++){
+            if(!mp.count(bound_face_vertex_exact_record[i])){
+                mp[bound_face_vertex_exact_record[i]] =  bound_face_vertex_exact.size();
+                bound_face_vertex_exact.push_back(bound_face_vertex_exact_record[i]);
+            }
+        }
+
+        for (const auto& triangle : surface_triangles) {
+            int v0_id = mp[(triangle.vertex(0))];
+            int v1_id = mp[(triangle.vertex(1))];
+            int v2_id = mp[(triangle.vertex(2))];
             bound_face_id.push_back({v0_id, v1_id, v2_id});
+            bound_face_sampling_point.push_back(get_sampling_point(triangle));
+            bound_face_sampling_point_state.emplace_back(bound_face_sampling_point.rbegin()->size(),0);
             center_vec += (centroid(K2::Triangle_3(bound_face_vertex_exact[v0_id],
                                                    bound_face_vertex_exact[v1_id],
                                                    bound_face_vertex_exact[v2_id])) - K2::Point_3(0,0,0)) ;
         }
-        center =  K2::Point_3(0,0,0) + (center_vec / surface_triangles.size());
 
+        center =  K2::Point_3(0,0,0) + (center_vec / surface_triangles.size());
         std::vector<std::vector<std::size_t> > faces_list;
 
         for (auto i: bound_face_id) {
             faces_list.push_back({std::size_t(i[0]), std::size_t(i[1]), std::size_t(i[2])});
-            bound_face_useful.push_back(true);
+            bound_face_useful.push_back(1);
         }
         bound_face_cross_field_list.resize(bound_face_id.size());
         bound_face_cutting_segment.resize(bound_face_id.size());
@@ -250,6 +539,8 @@ struct CoverageField {
         inside_ptr = new CGAL::Side_of_triangle_mesh<CGAL::Polyhedron_3<K2>, K2>(*poly);
 
     }
+
+
 public:
     bool in_field(K2::Point_3 v) {
         //CGAL::Side_of_triangle_mesh<CGAL::Polyhedron_3<K2>, K2> inside(*poly);
@@ -257,11 +548,241 @@ public:
             return true;
         return false;
     }
+    CoverageField(){}
+
+    CoverageField(MeshKernel::iGameFaceHandle fh, Tree * origin_face_tree) {
+        bound_face_vertex_exact.clear();
+        bound_face_id.clear();
+        bound_face_sampling_point.clear();
+        bound_face_sampling_point_state.clear();
+        bound_face_useful.clear();
+
+        bound_face_cross_field_list.clear();
+        bound_face_cutting_segment.clear();
+        bound_face_cutting_point.clear();
+
+        x_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].x());
+        y_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].y());
+        z_min = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].z());
+
+        x_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].x());
+        y_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].y());
+        z_max = CGAL::to_double(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)].z());
+
+        bound_face_vertex_exact.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(0)]);
+
+        bound_face_vertex_exact.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(1)]);
+
+        bound_face_vertex_exact.emplace_back(origin_mesh_vertices[mesh->fast_iGameFace[fh].vh(2)]);
+        K2::Triangle_3 origin_tri(
+                bound_face_vertex_exact[0],
+                bound_face_vertex_exact[1],
+                bound_face_vertex_exact[2]
+        );
+
+        for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(0)])
+            bound_face_vertex_exact.push_back(v);
+        for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(1)])
+            bound_face_vertex_exact.push_back(v);
+        for(auto v: field_move_vertices[mesh->fast_iGameFace[fh].vh(2)])
+            bound_face_vertex_exact.push_back(v);
+
+
+        map<K2::Point_3 ,int> mp;
+        for(int i=0;i<bound_face_vertex_exact.size();i++) {
+            x_min = min(CGAL::to_double(bound_face_vertex_exact[i].x()),x_min);
+            y_min = min(CGAL::to_double(bound_face_vertex_exact[i].y()),y_min);
+            z_min = min(CGAL::to_double(bound_face_vertex_exact[i].z()),z_min);
+            x_max = max(CGAL::to_double(bound_face_vertex_exact[i].x()),x_max);
+            y_max = max(CGAL::to_double(bound_face_vertex_exact[i].y()),y_max);
+            z_max = max(CGAL::to_double(bound_face_vertex_exact[i].z()),z_max);
+            mp[bound_face_vertex_exact[i]] = i;
+        }
+
+        double x_delta = ((x_max - x_min)/50);
+        double y_delta = ((y_max - y_min)/50);
+        double z_delta = ((z_max - z_min)/50);
+        x_min-=x_delta;
+        y_min-=y_delta;
+        z_min-=z_delta;
+        x_max+=x_delta;
+        y_max+=y_delta;
+        z_max+=z_delta;
+        iso_cuboid_3 = K2::Iso_cuboid_3(x_min,y_min,z_min,x_max,y_max,z_max);
+
+        if(field_move_vertices[mesh->fast_iGameFace[fh].vh(0)].size()==0 ||
+           field_move_vertices[mesh->fast_iGameFace[fh].vh(1)].size()==0 ||
+           field_move_vertices[mesh->fast_iGameFace[fh].vh(2)].size()==0 ||
+           origin_tri.is_degenerate()
+                ) {
+            center = centroid(K2::Triangle_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)])
+            ));
+            useful  = false;
+            return;
+        }
+        useful = true;
+
+        Delaunay3DK2 dt;
+        dt.insert(bound_face_vertex_exact.begin(), bound_face_vertex_exact.end());
+        std::vector<K2::Triangle_3> surface_triangles;
+        std::vector<K2::Triangle_3> surface_triangles_not_sub;
+        for (auto fit = dt.finite_cells_begin(); fit != dt.finite_cells_end(); ++fit) {
+            for (int i = 0; i < 4; ++i) {
+                if (dt.is_infinite(fit->neighbor(i))) {
+                    K2::Triangle_3 tri = dt.triangle(fit, i);
+                    K2::Segment_3 s0(tri.vertex(0),tri.vertex(1));
+                    K2::Segment_3 s1(tri.vertex(1),tri.vertex(2));
+                    K2::Segment_3 s2(tri.vertex(2),tri.vertex(0));
+                    std::list< Tree::Intersection_and_primitive_id<K2::Triangle_3>::Type> intersections;
+                    origin_face_tree->all_intersections(tri,std::back_inserter(intersections));
+                    vector<K2::Segment_3 > vs;
+                    vector<K2::Point_3 > vt;
+                    for(auto item : intersections) {
+                        if(const K2::Segment_3 * s = boost::get<K2::Segment_3>(&(item.first))){
+                            if(!segment_in_line(*s,s0) && !segment_in_line(*s,s1) && !segment_in_line(*s,s2)){
+                                vs.push_back(*s);
+                            }
+                        }
+                        else if(const K2::Point_3 * p = boost::get<K2::Point_3>(&(item.first))){
+                            if((*p!=tri.vertex(0)) && (*p!=tri.vertex(1)) && (*p!=tri.vertex(2))){
+                                vt.push_back(*p);
+                            }
+                        }
+                        else if(const std::vector<K2::Point_3> * v = boost::get<std::vector<K2::Point_3> >(&(item.first)) ){
+                            vector<K2::Segment_3 >
+                                    vslist;
+                            for(int j=0;j<v->size();j++){
+                                vslist.emplace_back(v->at(j),v->at((j+1)%v->size()));
+                            }
+                            for(auto k : vslist) {
+                                if (!segment_in_line(k, s0) && !segment_in_line(k, s1) && !segment_in_line(k, s2)) {
+                                    vs.push_back(k);
+                                }
+                            }
+                        }
+                        else if(const K2::Triangle_3 * tri = boost::get<K2::Triangle_3 >(&(item.first)) ){
+                            vector<K2::Segment_3 > vslist{K2::Segment_3 (tri->vertex(0),tri->vertex(1)),
+                                                          K2::Segment_3 (tri->vertex(1),tri->vertex(2)),
+                                                          K2::Segment_3 (tri->vertex(2),tri->vertex(0))
+                            };
+                            for(auto k : vslist) {
+                                if (!segment_in_line(k, s0) && !segment_in_line(k, s1) && !segment_in_line(k, s2)) {
+                                    vs.push_back(k);
+                                }
+                            }
+                        }
+                    }
+
+                    if(vs.size() || vt.size()){
+                        vt.push_back(tri.vertex(0));
+                        vt.push_back(tri.vertex(1));
+                        vt.push_back(tri.vertex(2));
+
+                        auto res = CGAL_CDT_NEW2(vt,vs,tri);
+                        for(auto r: res){
+                            K2::Triangle_3 sub_tri(r[0],r[1],r[2]);
+
+                            surface_triangles.push_back(sub_tri);
+                        }
+                    }
+                    else{
+                        surface_triangles.push_back(tri);
+                    }
+                    surface_triangles_not_sub.push_back(tri);
+                }
+            }
+        }
+
+        if(surface_triangles.size()<4){
+            center = centroid(K2::Triangle_3(iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(0)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(1)]),
+                                             iGameVertex_to_Point_K2(mesh->fast_iGameVertex[mesh->fast_iGameFace[fh].vh(2)])
+            ));
+            useful  = false;
+            return;
+        }
+
+        K2::Vector_3 center_vec = {0,0,0};
+        for (const auto& triangle : surface_triangles) {
+            for (int i = 0; i < 3; i++) {
+                if(!mp.count(triangle.vertex(i))) {
+                    mp[triangle.vertex(i)] = bound_face_vertex_exact.size();
+                    bound_face_vertex_exact.push_back(triangle.vertex(i));
+                }
+            }
+
+            int v0_id = mp[triangle.vertex(0)];
+            int v1_id = mp[triangle.vertex(1)];
+            int v2_id = mp[triangle.vertex(2)];
+
+            bound_face_id.push_back({v0_id, v1_id, v2_id});
+            bound_face_sampling_point.push_back(get_sampling_point(triangle));
+            bound_face_sampling_point_state.emplace_back(bound_face_sampling_point.rbegin()->size(),0);
+            center_vec += (centroid(K2::Triangle_3(bound_face_vertex_exact[v0_id],
+                                                   bound_face_vertex_exact[v1_id],
+                                                   bound_face_vertex_exact[v2_id])) - K2::Point_3(0,0,0)) ;
+        }
+
+        for (const auto& triangle : surface_triangles_not_sub) {
+
+            for (int i = 0; i < 3; i++) {
+                if(!mp.count(triangle.vertex(i))) {
+                    mp[triangle.vertex(i)] = bound_face_vertex_exact.size();
+                    bound_face_vertex_exact.push_back(triangle.vertex(i));
+                }
+            }
+
+            int v0_id = mp[triangle.vertex(0)];
+            int v1_id = mp[triangle.vertex(1)];
+            int v2_id = mp[triangle.vertex(2)];
+
+            bound_face_id_not_sub.push_back({v0_id, v1_id, v2_id});
+        }
+
+        center =  K2::Point_3(0,0,0) + (center_vec / surface_triangles.size());
+
+        std::vector<std::vector<std::size_t> > faces_list;
+
+        for (auto i: bound_face_id) {
+            faces_list.push_back({std::size_t(i[0]), std::size_t(i[1]), std::size_t(i[2])});
+            if(origin_face_tree->squared_distance(bound_face_vertex_exact[i[0]])==CGAL::Epeck::FT(0) &&
+                    origin_face_tree->squared_distance(bound_face_vertex_exact[i[1]])==CGAL::Epeck::FT(0) &&
+                    origin_face_tree->squared_distance(bound_face_vertex_exact[i[2]])==CGAL::Epeck::FT(0)
+            ) {
+            //if(0) {
+//            if(origin_tri.has_on(bound_face_vertex_exact[i[0]]) &&
+//                    origin_tri.has_on(bound_face_vertex_exact[i[1]]) &&
+//                    origin_tri.has_on(bound_face_vertex_exact[i[2]])
+//                    ) {
+                bound_face_useful.push_back(0);
+            }
+            else
+                bound_face_useful.push_back(1);
+        }
+
+        bound_face_cross_field_list.resize(bound_face_id.size());
+        bound_face_cutting_segment.resize(bound_face_id.size());
+        bound_face_cutting_point.resize(bound_face_id.size());
+        poly = new CGAL::Polyhedron_3<K2>();
+
+        PMP::polygon_soup_to_polygon_mesh(bound_face_vertex_exact, bound_face_id_not_sub, *poly, CGAL::parameters::all_default());
+        inside_ptr = new CGAL::Side_of_triangle_mesh<CGAL::Polyhedron_3<K2>, K2>(*poly);
+
+    }
+
+
+    CGAL::Bounded_side bounded_side(K2::Point_3 v) {
+        //CGAL::Side_of_triangle_mesh<CGAL::Polyhedron_3<K2>, K2> inside(*poly);
+        return (*inside_ptr)(v);
+    }
+
 
     bool in_or_on_field(K2::Point_3 v) {
         //CGAL::Side_of_triangle_mesh<CGAL::Polyhedron_3<K2>, K2> inside(*poly);
         auto side = (*inside_ptr)(v);
-        if (side== CGAL::ON_BOUNDED_SIDE || side == CGAL::ON_BOUNDARY)
+        if (side == CGAL::ON_BOUNDED_SIDE || side == CGAL::ON_BOUNDARY)
             return true;
         return false;
     }

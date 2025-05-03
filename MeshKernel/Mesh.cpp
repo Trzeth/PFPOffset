@@ -42,24 +42,24 @@ namespace MeshKernel {
                 this->FastNeighborFhOfVertex_[_elements[i][j].idx()].insert(MeshKernel::iGameFaceHandle(i));
 
         }
-        for(int i =0;i< this->FastNeighborFhOfVertex_.size();i++){
-            for(iGameFaceHandle j : this->FastNeighborFhOfVertex_[i]){
-                std::set<int>se;
-                se.insert(this->fast_iGameFace[j].vh(0));
-                se.insert(this->fast_iGameFace[j].vh(1));
-                se.insert(this->fast_iGameFace[j].vh(2));
-                for(iGameFaceHandle k: this->FastNeighborFhOfVertex_[i])
-                {
-                    if(j==k)continue;
-                    int cnt = se.count(this->fast_iGameFace[k].vh(0)) +
-                            se.count(this->fast_iGameFace[k].vh(1)) +
-                            se.count(this->fast_iGameFace[k].vh(2));
-                    if(cnt == 2){
-                        this->FastNeighborFhOfFace_[j].insert(k);
-                    }
-                }
-            }
-        }
+//        for(int i =0;i< this->FastNeighborFhOfVertex_.size();i++){
+//            for(iGameFaceHandle j : this->FastNeighborFhOfVertex_[i]){
+//                std::set<int>se;
+//                se.insert(this->fast_iGameFace[j].vh(0));
+//                se.insert(this->fast_iGameFace[j].vh(1));
+//                se.insert(this->fast_iGameFace[j].vh(2));
+//                for(iGameFaceHandle k: this->FastNeighborFhOfVertex_[i])
+//                {
+//                    if(j==k)continue;
+//                    int cnt = se.count(this->fast_iGameFace[k].vh(0)) +
+//                            se.count(this->fast_iGameFace[k].vh(1)) +
+//                            se.count(this->fast_iGameFace[k].vh(2));
+//                    if(cnt == 2){
+//                        this->FastNeighborFhOfFace_[j].insert(k);
+//                    }
+//                }
+//            }
+//        }
     }
 }
 

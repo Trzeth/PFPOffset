@@ -50,6 +50,7 @@ bool segment_coincide_triangle(K2::Segment_3 a,K2::Triangle_3 tri){
     return false;
 }
 
+
 bool point_coincide_triangle(K2::Point_3 a,K2::Triangle_3 tri){
     for(int i=0;i<3;i++){
         K2::Segment_3 c(tri.vertex(i),tri.vertex((i+1)%3));
@@ -80,12 +81,45 @@ inline bool is_same_triangle(K::Point_3 p0,K::Point_3 p1,K::Point_3 p2,K::Point_
     check+=( sqrt(CGAL::to_double(squared_distance(q0,p0))) < eps || sqrt(CGAL::to_double(squared_distance(q0,p1))) <eps || sqrt(CGAL::to_double(squared_distance(q0,p2)))<eps );
     check+=( sqrt(CGAL::to_double(squared_distance(q1,p0))) < eps || sqrt(CGAL::to_double(squared_distance(q1,p1))) <eps || sqrt(CGAL::to_double(squared_distance(q1,p2)))<eps );
     check+=( sqrt(CGAL::to_double(squared_distance(q2,p0))) < eps || sqrt(CGAL::to_double(squared_distance(q2,p1))) <eps || sqrt(CGAL::to_double(squared_distance(q2,p2)))<eps );
-    if(check)
-        cout << "check "<< check <<endl;
+//    if(check)
+//        cout << "check "<< check <<endl;
     return check == 6;
 
 }
+inline bool is_same_triangle(K2::Point_3 p0,K2::Point_3 p1,K2::Point_3 p2,K2::Point_3 q0,K2::Point_3 q1,K2::Point_3 q2,double eps ){
+    int check = 0;
+    check+=( sqrt(CGAL::to_double(squared_distance(p0,q0))) < eps || sqrt(CGAL::to_double(squared_distance(p0,q1))) <eps || sqrt(CGAL::to_double(squared_distance(p0,q2)))<eps );
+    check+=( sqrt(CGAL::to_double(squared_distance(p1,q0))) < eps || sqrt(CGAL::to_double(squared_distance(p1,q1))) <eps || sqrt(CGAL::to_double(squared_distance(p1,q2)))<eps );
+    check+=( sqrt(CGAL::to_double(squared_distance(p2,q0))) < eps || sqrt(CGAL::to_double(squared_distance(p2,q1))) <eps || sqrt(CGAL::to_double(squared_distance(p2,q2)))<eps );
 
+    check+=( sqrt(CGAL::to_double(squared_distance(q0,p0))) < eps || sqrt(CGAL::to_double(squared_distance(q0,p1))) <eps || sqrt(CGAL::to_double(squared_distance(q0,p2)))<eps );
+    check+=( sqrt(CGAL::to_double(squared_distance(q1,p0))) < eps || sqrt(CGAL::to_double(squared_distance(q1,p1))) <eps || sqrt(CGAL::to_double(squared_distance(q1,p2)))<eps );
+    check+=( sqrt(CGAL::to_double(squared_distance(q2,p0))) < eps || sqrt(CGAL::to_double(squared_distance(q2,p1))) <eps || sqrt(CGAL::to_double(squared_distance(q2,p2)))<eps );
+//    if(check)
+//        cout << "check "<< check <<endl;
+    return check == 6;
+
+}
+inline int is_same_triangle_cnt(K2::Triangle_3 p,K2::Triangle_3 q,CGAL::Epeck::FT eps ){
+    K2::Point_3 p0 = p.vertex(0);
+    K2::Point_3 p1 = p.vertex(1);
+    K2::Point_3 p2 = p.vertex(2);
+    K2::Point_3 q0 = q.vertex(0);
+    K2::Point_3 q1 = q.vertex(1);
+    K2::Point_3 q2 = q.vertex(2);
+    int check = 0;
+    check+=( ((squared_distance(p0,q0))) <= eps || ((squared_distance(p0,q1))) <=eps || ((squared_distance(p0,q2)))<=eps );
+    check+=( ((squared_distance(p1,q0))) <= eps || ((squared_distance(p1,q1))) <=eps || ((squared_distance(p1,q2)))<=eps );
+    check+=( ((squared_distance(p2,q0))) <= eps || ((squared_distance(p2,q1))) <=eps || ((squared_distance(p2,q2)))<=eps );
+
+    check+=( ((squared_distance(q0,p0))) <= eps || ((squared_distance(q0,p1))) <=eps || ((squared_distance(q0,p2)))<=eps );
+    check+=( ((squared_distance(q1,p0))) <= eps || ((squared_distance(q1,p1))) <=eps || ((squared_distance(q1,p2)))<=eps );
+    check+=( ((squared_distance(q2,p0))) <= eps || ((squared_distance(q2,p1))) <=eps || ((squared_distance(q2,p2)))<=eps );
+//    if(check)
+//        cout << "check "<< check <<endl;
+    return check;
+
+}
 
 CGAL::Epeck::FT triangle_squared_aspect_ratio(vector<K2::Point_2>v){
     vector<CGAL::Epeck::FT> length;

@@ -9,10 +9,10 @@
 DEFINE_int32(m, 1,
              "This arg is a integer means result mode which value can be chose in 1,2. \n mode 1 is use ftetwild. \n mode 2 is use tetwild.");
 
-DEFINE_double(l, 1.30,
+DEFINE_double(l, 1.3,
               "This arg is a double which value indicates how many times the maximum offset distance is the ideal offset distance.");
 
-DEFINE_double(s, 1.0,
+DEFINE_double(s, 0.9,
               "This arg is a double which value indicates how many times the minimum offset distance is the ideal offset distance.");
 DEFINE_int32(t, 12, "thread num please set this value depend the cpu of you device.");
 DEFINE_string(f, "", "file name, it must be like *.obj2 or *.obj");
@@ -27,13 +27,16 @@ DEFINE_double(L, -1,
 
 DEFINE_double(E, -1,
               "set tetwild argument -e");
+DEFINE_double(r, -1,
+              "default ratio");
 
 //DEFINE_double(e, 1e-4,
 //              "This arg is a double means the eps. When the distance of two points is smaller than eps, we will regard these two point as coinciding. ");
 int result_mode;
-string input_filename;
+
 double tetwild_l = -1;
 double tetwild_e = -1;
+double default_ratio = 1e-3;
 void flag_parser() {
     result_mode = FLAGS_m;
     cout << "result_mode is " << result_mode << endl;
@@ -50,6 +53,9 @@ void flag_parser() {
     tetwild_l = FLAGS_L;
     tetwild_e = FLAGS_E;
     default_move = FLAGS_d;
+    if(FLAGS_r > 0){
+        default_ratio = FLAGS_r;
+    }
 
 }
 
